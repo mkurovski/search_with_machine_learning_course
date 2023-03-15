@@ -6,6 +6,8 @@ import os
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+import pandas as pd
+
 def transform_name(product_name):
     # IMPLEMENT
     return product_name
@@ -37,6 +39,28 @@ names_as_labels = False
 if args.label == 'name':
     names_as_labels = True
 
+# Remark: some redundancy with `_label_filename` here, could be refactored
+def count_categories(directory: str) -> pd.Series:
+    filepaths = glob.glob(f"{directory}/*.xml")
+    
+    categories = []
+    for filepath in filepaths:
+        tree = ET.parse(filepath)
+        root = tree.getroot()
+        for child in root:
+            if (child.find('name') is not None and child.find('name').text is not None and
+            child.find('categoryPath') is not None and len(child.find('categoryPath')) > 0 and
+            child.find('categoryPath')[len(child.find('categoryPath')) - 1][0].text is not None and
+            child.find('categoryPath')[0][0].text == 'cat00000' and
+            child.find('categoryPath')[1][0].text != 'abcat0600000'):
+                if names_as_labels:
+                    cat = child.find('categoryPath')[len(child.find('categoryPath')) - 1][1].text.replace(' ', '_')
+                else:
+                    cat = child.find('categoryPath')[len(child.find('categoryPath')) - 1][0].text
+                categories.append(cat)
+    
+    return pd.Series(categories).value_counts()
+
 def _label_filename(filename):
     tree = ET.parse(filename)
     root = tree.getroot()
@@ -60,10 +84,15 @@ def _label_filename(filename):
 
 if __name__ == '__main__':
     files = glob.glob(f'{directory}/*.xml')
+    print(f"Counting Category Occurences (min_products = {min_products}) ...")
+    category_counts = count_categories(directory)
+    qualified_categories = set(category_counts[category_counts >= min_products].index)
+    
     print("Writing results to %s" % output_file)
     with multiprocessing.Pool() as p:
         all_labels = tqdm(p.imap(_label_filename, files), total=len(files))
         with open(output_file, 'w') as output:
             for label_list in all_labels:
                 for (cat, name) in label_list:
-                    output.write(f'__label__{cat} {name}\n')
+                    if cat in qualified_categories:
+                        output.write(f'__label__{cat} {name}\n')
