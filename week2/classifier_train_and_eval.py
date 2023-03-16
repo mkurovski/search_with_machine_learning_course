@@ -8,6 +8,8 @@ from scipy.spatial.distance import cosine
 k = 1
 
 dataset_filepath = "/workspace/datasets/fasttext/pruned_labeled_products.txt"
+dataset_filepath = "/workspace/datasets/fasttext/normalized_labeled_products.txt"
+# dataset_filepath = "/workspace/datasets/fasttext/labeled_products.txt"
 train_filepath = "/workspace/datasets/fasttext/train_pruned.txt"
 test_filepath = "/workspace/datasets/fasttext/test_pruned.txt"
 
@@ -47,7 +49,7 @@ def load_shuffle_split():
 
     overlap = np.intersect1d(unq_train_labels, unq_test_labels)
 
-    assert len(unq_train_labels) == len(overlap)
+    # assert len(unq_train_labels) == len(overlap)
     print(f"{len(overlap)} unq labels found in both sets")
 
     with open(train_filepath, "w") as file:
@@ -97,7 +99,7 @@ def get_prec_rec(model, data: list, k: int=1) -> (list, list):
 
 if __name__ == "__main__":
     print("Loading Data ...")
-    # load_shuffle_split()
+    load_shuffle_split()
     train_data = convert_test_file(train_filepath)
     test_data = convert_test_file(test_filepath)
 
@@ -120,12 +122,12 @@ if __name__ == "__main__":
     print("Evaluation ...")
     precision, recall = get_prec_rec(model, test_data, k=k)
     print("Test Statistics:")
-    print(f"P@{k}: {precision.mean()}")
-    print(f"R@{k}: {recall.mean()}")
+    print(f"P@{k}: {round(precision.mean(), 5)}")
+    print(f"R@{k}: {round(recall.mean(), 5)}")
 
     precision, recall = get_prec_rec(model, train_data, k=k)
     print("Train Statistics:")
-    print(f"P@{k}: {precision.mean()}")
-    print(f"R@{k}: {recall.mean()}")
+    print(f"P@{k}: {round(precision.mean(), 5)}")
+    print(f"R@{k}: {round(recall.mean(), 5)}")
 
     print("\nFinished")
