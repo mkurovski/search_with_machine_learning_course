@@ -14,7 +14,7 @@ test_filepath = "/workspace/datasets/fasttext/test_pruned.txt"
 n_train = 10000
 n_test = 10000
 
-random_seed = 39
+random_seed = 21
 np.random.seed(random_seed)
 
 hyperparams = {

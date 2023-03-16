@@ -34,6 +34,7 @@ if os.path.isdir(output_dir) == False:
 if args.input:
     directory = args.input
 # IMPLEMENT: Track the number of items in each category and only output if above the min
+# TODO: very slow, try to make the implementation more time-efficient
 min_products = args.min_products
 names_as_labels = False
 if args.label == 'name':
@@ -85,8 +86,9 @@ def _label_filename(filename):
 if __name__ == '__main__':
     files = glob.glob(f'{directory}/*.xml')
     print(f"Counting Category Occurences (min_products = {min_products}) ...")
-    category_counts = count_categories(directory)
-    qualified_categories = set(category_counts[category_counts >= min_products].index)
+    if min_products > 0:
+        category_counts = count_categories(directory)
+        qualified_categories = set(category_counts[category_counts >= min_products].index)
     
     print("Writing results to %s" % output_file)
     with multiprocessing.Pool() as p:
@@ -94,5 +96,8 @@ if __name__ == '__main__':
         with open(output_file, 'w') as output:
             for label_list in all_labels:
                 for (cat, name) in label_list:
-                    if cat in qualified_categories:
+                    if min_products > 0:
+                        if cat in qualified_categories:
+                            output.write(f'__label__{cat} {name}\n')
+                    else:
                         output.write(f'__label__{cat} {name}\n')
