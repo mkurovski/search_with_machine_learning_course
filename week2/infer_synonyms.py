@@ -1,3 +1,4 @@
+import csv
 import fasttext
 
 top_words_filepath = "/workspace/datasets/fasttext/top_words.txt"
@@ -20,10 +21,10 @@ for top_word in top_words:
     candidates = synonym_model.get_nearest_neighbors(top_word, k)
     candidates = [synonym for cosine_sim, synonym in candidates if cosine_sim >= threshold]
     if len(candidates) > 0:
-        line = f"{top_word}," + ",".join(candidates)
-        output.append(line)
+        output.append([top_word]+candidates)
     else:
-        output.append(top_word)
+        output.append([top_word])
 
 with open(synonym_output_filepath, "w") as file:
-    file.write("\n".join(output))
+    csvwriter = csv.writer(file)
+    csvwriter.writerows(output)
