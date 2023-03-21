@@ -66,6 +66,7 @@ queries_df = pd.read_csv(queries_file_name)[['category', 'query']]
 queries_df = queries_df[queries_df['category'].isin(categories)]
 
 # IMPLEMENT ME: Convert queries to lowercase, and optionally implement other normalization, like stemming.
+_logger.info(f"Running Query Transformation ...")
 queries_df["query"] = queries_df["query"].map(clean_query)
 
 # IMPLEMENT ME: Roll up categories to ancestors to satisfy the minimum number of queries per category.
@@ -80,6 +81,8 @@ while True:
         _logger.info(f"{len(roll_up_categories)} categories below threshold = {min_queries}, rolling up ...")
         indexer = queries_df[queries_df["category"].isin(roll_up_categories)].index
         queries_df.loc[indexer, "category"] = queries_df.loc[indexer, "category"].map(category_mapper)
+
+_logger.info(f"Rolling Up finished - {len(counts)} categories remain")
 
 # Create labels in fastText format.
 queries_df['label'] = '__label__' + queries_df['category']
