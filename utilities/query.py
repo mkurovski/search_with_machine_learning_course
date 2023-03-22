@@ -11,6 +11,11 @@ from urllib.parse import urljoin
 import pandas as pd
 import fileinput
 import logging
+import re
+
+import fasttext
+import nltk
+stemmer = nltk.stem.PorterStemmer()
 
 
 logger = logging.getLogger(__name__)
@@ -49,7 +54,7 @@ def create_prior_queries(doc_ids, doc_id_weights,
 
 
 # Hardcoded query here.  Better to use search templates or other query config.
-def create_query(user_query, click_prior_query, filters, sort="_score", sortDir="desc", size=10, source=None, use_synonyms: bool=False):
+def create_query(user_query, click_prior_query, filters, sort="_score", sortDir="desc", size=10, source=None, use_synonyms: bool=False, query_classes: list=None):
     if use_synonyms:
         match_field = "name.synonyms"
     else:
@@ -190,11 +195,39 @@ def create_query(user_query, click_prior_query, filters, sort="_score", sortDir=
     return query_obj
 
 
-def search(client, user_query, index="bbuy_products", sort="_score", sortDir="desc", use_synonyms: bool=False):
+# as required before applying the query classifier
+# to provide consistency between training and inference input
+def clean_query(query: str) -> str:
+    # substitute_non_alnum
+    clean_query = query.lower()
+    clean_query = "".join([symbol if symbol.isalnum() else " " for symbol in clean_query])
+    clean_query = re.sub(" +", " ", clean_query).strip()
+    clean_query = " ".join([stemmer.stem(token) for token in clean_query.split()])
+
+    return clean_query
+
+
+def search(client, user_query, index="bbuy_products", sort="_score", sortDir="desc", use_synonyms: bool=False, query_classifier=None, class_threshold: float=0.5):
     #### W3: classify the query
+    filters = []
+    if query_classifier is not None:
+        user_query_clean = clean_query(user_query)
+        pred_classes = query_classifier.predict(user_query_clean)
+        pred_classes = [label.lstrip("__label__") for label, confidence in zip(pred_classes[0], pred_classes[1]) if confidence > class_threshold]
+        logger.info(f"Predicted Query Classes: {pred_classes}")
+
+        # add to filters
+        if len(pred_classes) > 0:
+            class_filter = {
+                "terms": {
+                    "categoryPathIds.keyword": pred_classes
+                }
+            }
+            filters.append(class_filter)
+
     #### W3: create filters and boosts
     # Note: you may also want to modify the `create_query` method above
-    query_obj = create_query(user_query, click_prior_query=None, filters=None, sort=sort, sortDir=sortDir, source=["name", "shortDescription"], use_synonyms=use_synonyms)
+    query_obj = create_query(user_query, click_prior_query=None, filters=filters, sort=sort, sortDir=sortDir, source=["name", "shortDescription"], use_synonyms=use_synonyms)
     logging.info(query_obj)
     response = client.search(query_obj, index=index)
     if response and response['hits']['hits'] and len(response['hits']['hits']) > 0:
@@ -218,12 +251,17 @@ if __name__ == "__main__":
                          help='The OpenSearch admin.  If this is set, the program will prompt for password too. If not set, use default of admin/admin')
     general.add_argument("--synonyms", dest="use_synonyms", default=False, action="store_true",
                          help="If set we also include synonyms for tokens in the `name` field")
+    general.add_argument("--query_classifier_path", default="/workspace/datasets/fasttext/query_classifier.bin")
 
     args = parser.parse_args()
 
     if len(vars(args)) == 0:
         parser.print_usage()
         exit()
+
+    logger.info(f"Loading query classifier model from {args.query_classifier_path}")
+    query_classifier = fasttext.load_model(args.query_classifier_path)
+    # query_classifier = None
 
     host = args.host
     port = args.port
@@ -252,4 +290,4 @@ if __name__ == "__main__":
         query = line.rstrip()
         if query.lower() == "exit":
             exit(0)
-        search(client=opensearch, user_query=query, index=index_name, use_synonyms=args.use_synonyms)
+        search(client=opensearch, user_query=query, index=index_name, use_synonyms=args.use_synonyms, query_classifier=query_classifier)

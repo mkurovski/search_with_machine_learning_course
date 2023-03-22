@@ -12,11 +12,12 @@ import pandas as pd
 dataset_filepath = "/workspace/datasets/fasttext/labeled_queries.txt"
 train_filepath = "/workspace/datasets/fasttext/train_labeled_queries.txt"
 test_filepath = "/workspace/datasets/fasttext/test_labeled_queries.txt"
+model_filepath = "/workspace/datasets/fasttext/query_classifier.bin"
 
 eval_k = [1, 2, 3]
 hyperparams = {
-    "epoch": 25,
-    "lr": 0.5,
+    "epoch": 35,
+    "lr": 0.60,
     "wordNgrams": 2,
 }
 
@@ -121,6 +122,9 @@ if __name__ == "__main__":
         precision, recall = get_prec_rec(model, test_data, k=k)
         _logger.info(f"P@{k}: {round(precision.mean(), 5)}")
         _logger.info(f"R@{k}: {round(recall.mean(), 5)}")
+
+    _logger.info(f"Saving Model to {model_filepath}")
+    model.save_model(model_filepath)
 
     _logger.info("Finished.")
 
